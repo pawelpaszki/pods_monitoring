@@ -145,5 +145,5 @@ function getFirstInteger(name) {
 
 process.on('SIGINT', async function() {
   console.log("Caught interrupt signal");
-  await exec('export KEEP_RUNNING="stop');
+  await exec('export KEEP_RUNNING=stop');
 });
