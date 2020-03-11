@@ -17,7 +17,7 @@ async function monitorDowntime() {
 
 async function getPods(namespace) {
   try {
-    let podsOutput = await exec(`oc get pods -n ${namespace} | awk '{print $1,$2}'`);
+    let podsOutput = await exec(`oc get pods -n ${namespace} | awk '{print $1,$2}' --request-timeout="1s"`);
     if (!podsOutput.stdout.toString().toLocaleLowerCase().includes("no resources") && // else - ns is considered down
         podsOutput.stdout.toString().length !== 0) {
       let outputLines = podsOutput.stdout.split("\n");
@@ -145,7 +145,7 @@ function podShortName(namespace, podName) {
   } else if (namespace.includes("3scale") && namespace.includes("operator")) {
     return "3scale-operator";
   } else {
-    return podName.substring(0, getFirstInteger(podName) - 1);
+    return podName.substring(0, getSuffixIndex(podName));
   }
 }
 
@@ -153,8 +153,34 @@ function getCurrentEpochTimestamp() {
   return Math.floor(Date.now() / 1000);
 }
 
-function getFirstInteger(name) {
-  return name.toString().match('[0-9]').index;
+function getSuffixIndex(name) {
+  nameBlocks = name.split('-');
+  for (let block of nameBlocks) {
+    if ((block.length === 1 && isNumber(block)) || (block.length > 1 && hasIntegersAndChars(block))) {
+      return name.indexOf(`-${block}`); // not expecting single digits at the start of the pod name
+    }
+  }
+  throw new Exception("Unable to get pod suffix index!");
+}
+
+function isNumber(podNameBlock) {
+  return podNameBlock >= '0' && podNameBlock <= '9';
+}
+
+function hasIntegersAndChars(podNameBlock) {
+  let numCount = 0;
+  let charCount = 0;
+  for (let i = 0; i < podNameBlock.length; i++) {
+    if (isNumber(podNameBlock.charAt(i))) {
+      numCount++
+    } else {
+      charCount++
+    }
+    if (numCount > 1 && charCount > 0) {
+      return true;
+    }
+  }
+  return false;
 }
 
 process.on('SIGINT', async function() {
