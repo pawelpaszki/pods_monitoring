@@ -17,7 +17,7 @@ async function monitorDowntime() {
 
 async function getPods(namespace) {
   try {
-    let podsOutput = await exec(`oc get pods -n ${namespace} | awk '{print $1,$2}' --request-timeout="1s"`);
+    let podsOutput = await exec(`oc get pods -n ${namespace} --request-timeout="1s" | awk '{print $1,$2}'`);
     if (!podsOutput.stdout.toString().toLocaleLowerCase().includes("no resources") && // else - ns is considered down
         podsOutput.stdout.toString().length !== 0) {
       let outputLines = podsOutput.stdout.split("\n");
@@ -142,8 +142,8 @@ function filterPods(pods, namespace) {
 function podShortName(namespace, podName) {
   if (namespace.includes("ups") && !namespace.includes("operator")) {
     return "ups";
-  } else if (namespace.includes("3scale") && namespace.includes("operator")) {
-    return "3scale-operator";
+  } else if (namespace.includes("operator") && podName.includes("operator")) {
+    return podName.substring(0, podName.indexOf("operator") + "operator".length);
   } else {
     return podName.substring(0, getSuffixIndex(podName));
   }
@@ -160,6 +160,8 @@ function getSuffixIndex(name) {
       return name.indexOf(`-${block}`); // not expecting single digits at the start of the pod name
     }
   }
+  console.log(name);
+  console.log(nameBlocks);
   throw new Exception("Unable to get pod suffix index!");
 }
 
