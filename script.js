@@ -95,9 +95,11 @@ async function monitorDowntimePerNs() {
         }
         process.stdout.write('available');
       } else {
-        process.stdout.write(' not fully available');
-        if (projects[projIndex].downtimes.length === 0 || projects[projIndex].downtimes[projects[projIndex].downtimes.length - 1].end !== 0) { // only adding new downtime start timestamp, if there isn't one available
-          projects[projIndex].downtimes.push({"start": getCurrentEpochTimestamp(), "end": 0});
+        if (keepRunning) {
+          process.stdout.write(' not fully available');
+          if (projects[projIndex].downtimes.length === 0 || projects[projIndex].downtimes[projects[projIndex].downtimes.length - 1].end !== 0) { // only adding new downtime start timestamp, if there isn't one available
+            projects[projIndex].downtimes.push({"start": getCurrentEpochTimestamp(), "end": 0});
+          }
         }
       }
     }
