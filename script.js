@@ -3,6 +3,7 @@ const exec = util.promisify(require('child_process').exec);
 let projects = [];
 let response;
 let readyPods = [];
+let keepRunning = true;
 const start = getCurrentEpochTimestamp();
 
 monitorDowntime();
@@ -49,6 +50,10 @@ async function persistResults() {
       projects[projIndex].downtimeInSeconds = getTotalDowntime(projects[projIndex].downtimes);
     }
   }
+  writeJSONtoFile();
+}
+function writeJSONtoFile() {
+  process.stdout.write('\nPersisting current JSON data to downtime.json file... ');
   const fs = require('fs');
   const results = {"projects": projects, "start": start, "end": getCurrentEpochTimestamp()};
   fs.writeFile("downtime.json", JSON.stringify(results), function(err) {
@@ -75,7 +80,7 @@ function isSuperset(target, array) {
 }
 
 async function monitorDowntimePerNs() {
-  while (process.env.KEEP_RUNNING === "run") {
+  while (keepRunning) {
     for (let projIndex = 0; projIndex < projects.length; projIndex++) {
       process.stdout.write(`\nChecking ready pods for ${projects[projIndex].name}... `);
       readyPods = await getPods(projects[projIndex].name);
@@ -91,6 +96,7 @@ async function monitorDowntimePerNs() {
         }
       }
     }
+    writeJSONtoFile();
   }
 }
 
@@ -145,5 +151,7 @@ function getFirstInteger(name) {
 
 process.on('SIGINT', async function() {
   console.log("Caught interrupt signal");
-  await exec('export KEEP_RUNNING=stop');
+  keepRunning = false;
+  await exec('sleep 20');
+  process.exit(0);
 });
