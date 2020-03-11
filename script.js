@@ -160,8 +160,6 @@ function getSuffixIndex(name) {
       return name.indexOf(`-${block}`); // not expecting single digits at the start of the pod name
     }
   }
-  console.log(name);
-  console.log(nameBlocks);
   throw new Exception("Unable to get pod suffix index!");
 }
 
