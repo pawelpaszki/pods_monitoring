@@ -11,7 +11,8 @@ monitorDowntime();
 async function monitorDowntime() {
   await getProjects();
   await monitorDowntimePerNs();
-  await persistResults();
+  calculateDowntimes(true);
+  writeJSONtoFile();
 }
 
 async function getPods(namespace) {
@@ -41,17 +42,19 @@ async function getPods(namespace) {
   }
 }
 
-async function persistResults() {
+function calculateDowntimes(completeDowntimes) {
   for (let projIndex = 0; projIndex < projects.length; projIndex++) {
     if (projects[projIndex].downtimes.length !== 0) {
       if (projects[projIndex].downtimes[projects[projIndex].downtimes.length - 1].end === 0) { // if there are some downtimes already and the last downtime does not have 'end' timestamp
-        projects[projIndex].downtimes[projects[projIndex].downtimes.length - 1].end = getCurrentEpochTimestamp();
+        if (completeDowntimes) {
+          projects[projIndex].downtimes[projects[projIndex].downtimes.length - 1].end = getCurrentEpochTimestamp();
+        }
       }
       projects[projIndex].downtimeInSeconds = getTotalDowntime(projects[projIndex].downtimes);
     }
   }
-  writeJSONtoFile();
 }
+
 function writeJSONtoFile() {
   process.stdout.write('\nPersisting current JSON data to downtime.json file... ');
   const fs = require('fs');
@@ -67,7 +70,9 @@ function getTotalDowntime(downtimes) {
   let downtimeInSeconds = 0;
   try {
     downtimes.forEach(downtime => {
-      downtimeInSeconds += (downtime.end - downtime.start);
+      if(downtime.end !== 0) {
+        downtimeInSeconds += (downtime.end - downtime.start);
+      }
     });
     return downtimeInSeconds;
   } catch (_) {
@@ -91,11 +96,12 @@ async function monitorDowntimePerNs() {
         process.stdout.write('available');
       } else {
         process.stdout.write(' not fully available');
-        if (projects[projIndex].downtimes.length !== 0 && projects[projIndex].downtimes[projects[projIndex].downtimes.length - 1].end !== 0) { // only adding new downtime start timestamp, if there isn't one available
+        if (projects[projIndex].downtimes.length === 0 || projects[projIndex].downtimes[projects[projIndex].downtimes.length - 1].end !== 0) { // only adding new downtime start timestamp, if there isn't one available
           projects[projIndex].downtimes.push({"start": getCurrentEpochTimestamp(), "end": 0});
         }
       }
     }
+    calculateDowntimes(false);
     writeJSONtoFile();
   }
 }
