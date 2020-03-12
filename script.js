@@ -17,7 +17,7 @@ async function monitorDowntime() {
 
 async function getPods(namespace) {
   try {
-    let podsOutput = await exec(`oc get pods -n ${namespace} --request-timeout="5s" | awk '{print $1,$2}'`);
+    let podsOutput = await exec(`oc get pods -n ${namespace} | awk '{print $1,$2}'`);
     if (!podsOutput.stdout.toString().toLocaleLowerCase().includes("no resources") && // else - ns is considered down
         podsOutput.stdout.toString().length !== 0) {
       let outputLines = podsOutput.stdout.split("\n");
