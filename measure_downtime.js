@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 const util = require('util');
 const exec = util.promisify(require('child_process').exec);
 let projects = []; // used to store all projects that will be monitored (along with their dcs, deployments and statefulsets (if any))
@@ -39,17 +41,14 @@ async function getDcs() {
         let splitLines = line.split(/[ ]/); // split lines by space (" ")
         // only deal with the array of 4 elements and desired count not equal to '0'
         if (splitLines.length === 4 && splitLines[0].toString().startsWith(NAMESPACE_PREFIX) && splitLines[2] !== '0') {
-          // only look for dcs whose desired and current counts are the same
-          if (splitLines[2] === splitLines[3]) { 
-            // push new deployment config to the array of dcs
-            dcs.push({
-              "name": splitLines[1],
-              "namespace": splitLines[0],
-              "ready": splitLines[3],
-              "expected": splitLines[2],
-              "downtimes": []
-            });
-          }
+          // push new deployment config to the array of dcs
+          dcs.push({
+            "name": splitLines[1],
+            "namespace": splitLines[0],
+            "ready": splitLines[3],
+            "expected": splitLines[2],
+            "downtimes": []
+          });
         }
       });
       return dcs;
@@ -88,16 +87,13 @@ async function getDeployments() {
         let splitLines = line.split(/[ ,/]/); // split lines by empty space (" ") and "/"
         // only deal with the array of 4 elements and starting with the namespace prefix
         if (splitLines.length === 4 && splitLines[0].toString().startsWith(NAMESPACE_PREFIX)) {
-          // only look for deployments whose desired and current counts are the same
-          if (splitLines[2] === splitLines[3]) { 
-            deployments.push({
-              "name": splitLines[1],
-              "namespace": splitLines[0],
-              "ready": splitLines[2],
-              "expected": splitLines[3],
-              "downtimes": [] 
-            });
-          }
+          deployments.push({
+            "name": splitLines[1],
+            "namespace": splitLines[0],
+            "ready": splitLines[2],
+            "expected": splitLines[3],
+            "downtimes": [] 
+          });
         }
       });
       return deployments;
@@ -136,16 +132,13 @@ async function getStatefulSets() {
         let splitLines = line.split(/[ ,/]/); // split lines by empty space (" ") and "/"
         // only deal with the array of 4 elements and starting with the namespace prefix
         if (splitLines.length === 4 && splitLines[0].toString().startsWith(NAMESPACE_PREFIX)) {
-          // only look for statefulsets whose desired and current counts are the same
-          if (splitLines[2] === splitLines[3]) {
-            statefulSets.push({
-              "name": splitLines[1],
-              "namespace": splitLines[0],
-              "ready": splitLines[2],
-              "expected": splitLines[3],
-              "downtimes": []
-            });
-          }
+          statefulSets.push({
+            "name": splitLines[1],
+            "namespace": splitLines[0],
+            "ready": splitLines[2],
+            "expected": splitLines[3],
+            "downtimes": []
+          });
         }
       });
       return statefulSets;
@@ -212,7 +205,7 @@ function getTotalDowntime(downtimes) {
  * @param {*} item - item to be found
  * @param {*} array - array to be traversed
  * 
- * returns inded of the item in the specified array
+ * returns index of the item in the specified array
  */
 function findByNameAndNamespace(item, array) {
   try {
@@ -365,9 +358,9 @@ async function monitorDowntimePerNs() {
 Get all namespaces starting with the specified (or default) namespace prefix
 */
 async function getProjects() {
-  console.log("Getting initial list of RHMI comopnents");
+  console.log("Getting initial list of RHMI components");
   projects = [];
-  const ocResponse = await exec(`oc get projects -o json | jq '.items[] | select(.metadata.name | startswith(\"${NAMESPACE_PREFIX}\")) |.metadata.name'`); // TODO remove 3scale
+  const ocResponse = await exec(`oc get projects -o json | jq '.items[] | select(.metadata.name | startswith(\"${NAMESPACE_PREFIX}\")) |.metadata.name'`);
   let projectNames = ocResponse.stdout.split(/\r?\n/).filter(e => e !== '');
   const dcs = await getDcs();
   const deployments = await getDeployments();
@@ -401,4 +394,3 @@ process.on('SIGINT', async function() {
   await exec('sleep 10');
   process.exit(0);
 });
-
