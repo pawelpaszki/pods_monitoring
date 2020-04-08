@@ -4,6 +4,7 @@ let projects = [];
 let response;
 let readyPods = [];
 let keepRunning = true;
+const NAMESPACES_STRING = process.env.NAMESPACES || ''; // comma-separated namespaces to monitor
 const start = getCurrentEpochTimestamp();
 
 monitorDowntime();
@@ -15,6 +16,17 @@ async function monitorDowntime() {
   writeJSONtoFile();
 }
 
+/**
+ * split passed namespaces string into array
+ */
+function getProjectsFromString() {
+  return NAMESPACES_STRING.split(',');
+}
+
+/**
+ * returns pods for specified namespace
+ * @param {*} namespace - project name to monitor
+ */
 async function getPods(namespace) {
   try {
     let podsOutput = await exec(`oc get pods -n ${namespace} | awk '{print $1,$2}'`);
@@ -42,6 +54,10 @@ async function getPods(namespace) {
   }
 }
 
+/**
+ * 
+ * @param {*} completeDowntimes - whether to replace all unfinished timestamps (when the script is meant to stop)
+ */
 function calculateDowntimes(completeDowntimes) {
   for (let projIndex = 0; projIndex < projects.length; projIndex++) {
     if (projects[projIndex].downtimes.length !== 0) {
@@ -55,6 +71,9 @@ function calculateDowntimes(completeDowntimes) {
   }
 }
 
+/**
+ * persist all monitored namespaces and their downtimes per pod
+ */
 function writeJSONtoFile() {
   process.stdout.write('\nPersisting current JSON data to downtime.json file... ');
   const fs = require('fs');
@@ -66,6 +85,10 @@ function writeJSONtoFile() {
   });
 }
 
+/**
+ * calculate total downtime of provided downtimes collection
+ * @param {*} downtimes - collection of downtimes
+ */
 function getTotalDowntime(downtimes) {
   let downtimeInSeconds = 0;
   try {
@@ -80,10 +103,18 @@ function getTotalDowntime(downtimes) {
   }
 }
 
+/**
+ * Check if the target contains all elements in the specified array
+ * @param {*} target 
+ * @param {*} array 
+ */
 function isSuperset(target, array) {
   return target.every(v => array.includes(v));
 }
 
+/**
+ * monitor namespaces until keepRunning is set to false
+ */
 async function monitorDowntimePerNs() {
   while (keepRunning) {
     for (let projIndex = 0; projIndex < projects.length; projIndex++) {
@@ -98,31 +129,47 @@ async function monitorDowntimePerNs() {
         if (keepRunning) {
           process.stdout.write(' not fully available');
           if (projects[projIndex].downtimes.length === 0 || projects[projIndex].downtimes[projects[projIndex].downtimes.length - 1].end !== 0) { // only adding new downtime start timestamp, if there isn't one available
-            projects[projIndex].downtimes.push({"start": getCurrentEpochTimestamp(), "end": 0});
+            projects[projIndex].downtimes.push({"start": getCurrentEpochTimestamp(), "end": 0, "readyPods": readyPods});
           }
         }
       }
     }
     calculateDowntimes(false);
-    writeJSONtoFile();
+    if (keepRunning) {
+      writeJSONtoFile();
+    }
   }
 }
 
+/**
+ * Get projects starting with 'redhat-rhmi' or from `NAMESPACES` environment variable 
+ */
 async function getProjects() {
   console.log("Getting all available RHMI projects' names");
   projects = [];
-  response = await exec("oc get projects -o json | jq '.items[] | select(.metadata.name | startswith(\"redhat-rhmi\")) |.metadata.name'"); // TODO remove 3scale
-  let projectNames = response.stdout.split(/\r?\n/).filter(e => e !== '');
+  let projectNames;
+  if (NAMESPACES_STRING.length > 0) {
+    projectNames = getProjectsFromString();
+  } else {
+    response = await exec("oc get projects -o json | jq '.items[] | select(.metadata.name | startswith(\"redhat-rhmi\")) |.metadata.name'"); // TODO remove 3scale
+    projectNames = response.stdout.split(/\r?\n/).filter(e => e !== '');
+  }
   projectNames.forEach(project => {
     const namespaceName = (project.startsWith('"') && project.endsWith('"')) ? project.slice(1, -1) : project;
     projects.push({"name": namespaceName, "pods":  [], "downtimes": [], "downtimeInSeconds" : 0}); // slice - remove the quotes
   });
   for (let index = 0; index < projects.length; index++) {
+    console.log(`Getting relevant pods for ${projects[index].name} namespace`);
     response = await exec(`oc get pods -o json -n ${projects[index].name} | jq -r .items[].metadata.name`);
     projects[index].pods = filterPods(response.stdout.split(/\r?\n/), projects[index].name);
   }
 }
 
+/**
+ * get set of all of the relevant pods
+ * @param {*} pods 
+ * @param {*} namespace 
+ */
 function filterPods(pods, namespace) {
   if (pods.length === 0) {
     return [];
@@ -139,6 +186,11 @@ function filterPods(pods, namespace) {
   }
 }
 
+/**
+ * get short name of the pod
+ * @param {*} namespace - namespace name
+ * @param {*} podName - pod name
+ */
 function podShortName(namespace, podName) {
   if (namespace.includes("ups") && !namespace.includes("operator")) {
     return "ups";
@@ -149,10 +201,17 @@ function podShortName(namespace, podName) {
   }
 }
 
+/**
+ * get current timestamps up to the nearest second, rounded down
+ */
 function getCurrentEpochTimestamp() {
   return Math.floor(Date.now() / 1000);
 }
 
+/**
+ * get suffix index to create short pod name
+ * @param {*} name 
+ */
 function getSuffixIndex(name) {
   nameBlocks = name.split('-');
   for (let block of nameBlocks) {
@@ -163,10 +222,17 @@ function getSuffixIndex(name) {
   throw new Exception("Unable to get pod suffix index!");
 }
 
+/**
+ * determine if character is a number
+ * @param {*} podNameBlock 
+ */
 function isNumber(podNameBlock) {
   return podNameBlock >= '0' && podNameBlock <= '9';
 }
 
+/**
+ * determine if provided string has integers and chars
+ */
 function hasIntegersAndChars(podNameBlock) {
   let numCount = 0;
   let charCount = 0;
@@ -183,9 +249,14 @@ function hasIntegersAndChars(podNameBlock) {
   return false;
 }
 
+
+/**
+ * Catch 'Ctrl + C and set 'keepRunning' to false 
+ */
 process.on('SIGINT', async function() {
   console.log("Caught interrupt signal");
   keepRunning = false;
-  await exec('sleep 20');
+  calculateDowntimes(true);
+  await exec('sleep 10');
   process.exit(0);
 });
