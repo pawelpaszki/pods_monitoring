@@ -128,8 +128,25 @@ async function monitorDowntimePerNs() {
       } else {
         if (keepRunning) {
           process.stdout.write(' not fully available');
+          let timestamp = getCurrentEpochTimestamp(); 
           if (projects[projIndex].downtimes.length === 0 || projects[projIndex].downtimes[projects[projIndex].downtimes.length - 1].end !== 0) { // only adding new downtime start timestamp, if there isn't one available
-            projects[projIndex].downtimes.push({"start": getCurrentEpochTimestamp(), "end": 0, "readyPods": readyPods});
+            projects[projIndex].downtimes.push(
+              {
+                "start": timestamp,
+                "end": 0,
+                "statuses": [{
+                  "timestamp": timestamp,
+                  "readyPods": readyPods
+                }]
+              }
+            );
+          } else {
+            projects[projIndex].downtimes[projects[projIndex].downtimes.length - 1].statuses.push(
+              {
+                "timestamp": timestamp,
+                "readyPods": readyPods
+              }
+            );
           }
         }
       }
