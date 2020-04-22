@@ -213,7 +213,7 @@ function podShortName(namespace, podName) {
     return podName.substring(0, podName.length - 6);
   } else if (namespace.includes("ups") && !namespace.includes("operator")) {
     return "ups";
-  } else if (namespace.includes("operator") && podName.includes("operator")) {
+  } else if ((namespace.includes("operator") || namespace.includes("codeready")) && podName.includes("operator")) {
     return podName.substring(0, podName.indexOf("operator") + "operator".length);
   } else {
     return podName.substring(0, getSuffixIndex(podName));
