@@ -209,7 +209,9 @@ function filterPods(pods, namespace) {
  * @param {*} podName - pod name
  */
 function podShortName(namespace, podName) {
-  if (namespace.includes("ups") && !namespace.includes("operator")) {
+  if (namespace.includes("codeready") && podName.includes("workspace")) {
+    return podName.substring(0, podName.length - 6);
+  } else if (namespace.includes("ups") && !namespace.includes("operator")) {
     return "ups";
   } else if (namespace.includes("operator") && podName.includes("operator")) {
     return podName.substring(0, podName.indexOf("operator") + "operator".length);
