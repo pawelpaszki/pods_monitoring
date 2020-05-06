@@ -192,7 +192,8 @@ function filterPods(pods, namespace) {
     return [];
   } else {
     let filteredPods = pods.filter(e => 
-      e !== '' && !e.includes("deploy") && !e.includes("registry") && !e.includes("hook-pre") && !e.includes("hook-post")
+      e !== '' && !e.includes("deploy") && !e.includes("registry") && !e.includes("hook-pre") 
+      && !e.includes("hook-post") && !e.includes("daily") && !e.includes("backup")
     );
     let shortNamePods = [];
     filteredPods.forEach(pod => {
